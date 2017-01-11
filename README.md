@@ -1,4 +1,4 @@
-![MBARI logo](src/site/resources/logo-mbari-3b.png)
+![MBARI logo](src/site/resources/images/logo-mbari-3b.png)
 # timecode-grab
 
 Simple app for grabbing timecode and userbits date from VCRs that support Sony's 9-pin interface. It assumes that you are writing date to userbits as epoch seconds. 
