@@ -119,6 +119,13 @@ object Main  {
     videoIndices
   }
 
+  /**
+    * This method works but is VERY sensitive to any noise/errors in reported time. No recommended.
+    *
+    * @param videoIndices
+    * @param intervalSecs
+    * @param lengthSecs
+    */
   def dumpData(videoIndices: Seq[VideoIndex],
                intervalSecs: Double,
                lengthSecs: Double): Unit = {
@@ -157,6 +164,14 @@ object Main  {
 
   }
 
+  /**
+    * Naive estimator. Uses the last valid date combined with the user defined interval to
+    * estimate timestamps.
+    *
+    * @param videoIndices
+    * @param intervalSecs
+    * @param lengthSecs
+    */
   def dumpData2(videoIndices: Seq[VideoIndex],
                intervalSecs: Double,
                lengthSecs: Double): Unit = {
