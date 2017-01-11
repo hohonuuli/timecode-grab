@@ -24,7 +24,7 @@ This example will connect using the commport `/dev/cu.RS422 Deck Control` and sa
 
 ```
 java -jar timecode-grab-assembly-[version].jar \
-    "/dev/cu.RS422 Deck Control" 
+    "/dev/cu.RS422 Deck Control" \
     -d 10 -i 2 -t 45
 ```
 
