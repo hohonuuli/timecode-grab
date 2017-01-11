@@ -7,6 +7,7 @@ import org.docopt.Docopt
 import org.mbari.vcr4j.{VideoIndex}
 import org.mbari.vcr4j.commands.VideoCommands
 import org.mbari.vcr4j.decorators.{SchedulerVideoIO, VCRSyncDecorator}
+import org.mbari.vcr4j.decorators.VideoIndexAsString
 import org.mbari.vcr4j.jssc.JSSCVideoIO
 import org.mbari.vcr4j.rs422.decorators.UserbitsAsTimeDecorator
 import org.mbari.vcr4j.time.{FrameRates, Timecode}
@@ -25,6 +26,7 @@ object Main  {
                  | Usage: Main <commport> [options]
                  |
                  | Options:
+                 |   -h, --help                         Display help
                  |   -d DURATION, --duration=DURATION   Duration to sample in seconds [default: 10]
                  |   -i INTERVAL, --interval=INTERVAL   Sampling interval in seconds [default: 2]
                  |   -t LENGTH, --tapelength=LENGTH     Length of the tape in minutes [default: 45]
@@ -51,7 +53,7 @@ object Main  {
 
     val videoIndices = collectData(portName, durationMillis, intervalMillis)
 
-    dumpData(videoIndices, intervalSecs, lengthSecs)
+    dumpData2(videoIndices, intervalSecs, lengthSecs)
     System.exit(0)
 
   }
@@ -96,6 +98,7 @@ object Main  {
         io.send(VideoCommands.STOP)
         syncDecorator.unsubscribe()
         timeDecorator.unsubscribe()
+        io.unsubscribe()
         io.close()
         shouldWait.set(false)
       }
@@ -107,6 +110,12 @@ object Main  {
       Thread.sleep(200)
     }
 
+    /*
+    videoIndices.foreach(vi => {
+      val s = new VideoIndexAsString(vi)
+      println(s)
+    })
+    */
     videoIndices
   }
 
@@ -126,11 +135,16 @@ object Main  {
     val timeSecs = ind.map(i => i._2.getEpochSecond).map(_.toDouble)
     val outputTcSecs = (tcSecs.min to (tcSecs.min + lengthSecs) by intervalSecs).toArray
 
+    // Timecode must be monotonic
     val (tcs, ia, ic) = unique(tcSecs)
     val ts = subset(timeSecs, ia)
 
+    // For interp we need to get rid of duplicate timestamps
+    val (ts0, ia0, ic0) = unique(ts)
+    val tcs0 = subset(tcs, ia0)
+
     // interp
-    val outputTimeSecs = Functions.extrap1(tcs, ts, outputTcSecs).map(Math.round)
+    val outputTimeSecs = Functions.extrap1(tcs0, ts0, outputTcSecs).map(Math.round)
 
     // write out data
     val outputFrames = outputTcSecs.map(_ * FrameRates.NTSC)
@@ -143,6 +157,43 @@ object Main  {
 
   }
 
+  def dumpData2(videoIndices: Seq[VideoIndex],
+               intervalSecs: Double,
+               lengthSecs: Double): Unit = {
+     // -- Write out data as file
+     import scilube.Matlib._
+     val ind = videoIndices
+       .filter(vi => vi.getTimecode.isPresent && vi.getTimestamp.isPresent)
+       .map(vi => (vi.getTimecode.get(), vi.getTimestamp.get()))
+       .toArray
+
+     // Convert everything to seconds
+     val tcSecs = ind.map(i => new Timecode(i._1.toString, FrameRates.NTSC))
+       .map(_.getSeconds)
+     val timeSecs = ind.map(i => i._2.getEpochSecond).map(_.toDouble)
+     val outputTcSecs = (tcSecs.min to (tcSecs.min + lengthSecs) by intervalSecs).toArray
+
+     // Timecode must be monotonic
+     val (tcs, ia, ic) = unique(tcSecs)
+     val ts = subset(timeSecs, ia)
+
+     val out0 = interp1(tcs, ts, outputTcSecs)
+     for (i <- out0.indices) {
+       if (i > 0 && out0(i).isNaN) {
+         out0(i) = out0(i - 1) + intervalSecs
+       }
+     }
+     val outputTimeSecs = out0.map(Math.round)
+
+     // write out data
+     val outputFrames = outputTcSecs.map(_ * FrameRates.NTSC)
+     val outputTc = outputFrames.map(new Timecode(_, FrameRates.NTSC))
+     val outputInstant = outputTimeSecs.map(Instant.ofEpochSecond)
+     println("timecode\ttimestamp\tepochseconds")
+     for (i <- outputTc.indices) {
+       println(s"${outputTc(i)}\t${outputInstant(i)}\t${outputTimeSecs(i)}")
+     }
+   }
 
 
 }
