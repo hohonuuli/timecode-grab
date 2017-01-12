@@ -99,7 +99,7 @@ object Main  {
         syncDecorator.unsubscribe()
         timeDecorator.unsubscribe()
         io.unsubscribe()
-        io.close()
+        //rawIO.close()
         shouldWait.set(false)
       }
     }
